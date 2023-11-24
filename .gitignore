@@ -1,0 +1,6 @@
+.encoder.py.swp
+__pycache__/
+data/__pycache__/
+runs/
+save_model/
+video_arrays.npy
