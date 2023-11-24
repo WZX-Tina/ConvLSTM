@@ -27,19 +27,26 @@ class Encoder(nn.Module):
             setattr(self, 'rnn' + str(index), rnn)
 
     def forward_by_stage(self, inputs, subnet, rnn):
+        print('input size before reshape:',inputs.size())
         seq_number, batch_size, input_channel, height, width = inputs.size()
         inputs = torch.reshape(inputs, (-1, input_channel, height, width))
+        print('input size after reshape:',inputs.size())
         inputs = subnet(inputs)
         inputs = torch.reshape(inputs, (seq_number, batch_size, inputs.size(1),
                                         inputs.size(2), inputs.size(3)))
+        print('input size after subnet:', inputs.size())
         outputs_stage, state_stage = rnn(inputs, None)
+        print('output size after rnn:', outputs_stage.size())
         return outputs_stage, state_stage
 
     def forward(self, inputs):
         inputs = inputs.transpose(0, 1)  # to S,B,1,64,64
+        print("forward inputs' dimension:",inputs.size())
         hidden_states = []
         logging.debug(inputs.size())
+        print(self.blocks)
         for i in range(1, self.blocks + 1):
+            print("forward i:",i)
             inputs, state_stage = self.forward_by_stage(
                 inputs, getattr(self, 'stage' + str(i)),
                 getattr(self, 'rnn' + str(i)))
@@ -49,15 +56,15 @@ class Encoder(nn.Module):
 
 if __name__ == "__main__":
     from net_params import convgru_encoder_params, convgru_decoder_params
-    from data.mm import MovingMNIST
+    from data.mm import MovingFrame
 
     encoder = Encoder(convgru_encoder_params[0],
                       convgru_encoder_params[1]).cuda()
-    trainFolder = MovingMNIST(is_train=True,
-                              root='data/',
-                              n_frames_input=10,
-                              n_frames_output=10,
-                              num_objects=[3])
+    trainFolder = MovingFrame(is_train=True,
+                              root='../train_data/train',
+                              n_frames_input=11,
+                              n_frames_output=11,
+                              )
     trainLoader = torch.utils.data.DataLoader(
         trainFolder,
         batch_size=4,
@@ -66,4 +73,5 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     for i, (idx, targetVar, inputVar, _, _) in enumerate(trainLoader):
         inputs = inputVar.to(device)  # B,S,1,64,64
+        print("i--",i)
         state = encoder(inputs)

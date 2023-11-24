@@ -15,7 +15,7 @@ from encoder import Encoder
 from decoder import Decoder
 from model import ED
 from net_params import convlstm_encoder_params, convlstm_decoder_params, convgru_encoder_params, convgru_decoder_params
-from data.mm import MovingMNIST
+from data.mm import MovingFrame
 import torch
 from torch import nn
 from torch.optim import lr_scheduler
@@ -27,7 +27,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 import argparse
 
-TIMESTAMP = "2020-03-09T00-00-00"
+TIMESTAMP = "2023-11-22T00-00-00"
 parser = argparse.ArgumentParser()
 parser.add_argument('-clstm',
                     '--convlstm',
@@ -43,17 +43,17 @@ parser.add_argument('--batch_size',
                     help='mini-batch size')
 parser.add_argument('-lr', default=1e-4, type=float, help='G learning rate')
 parser.add_argument('-frames_input',
-                    default=10,
+                    default=11,
                     type=int,
                     help='sum of input frames')
 parser.add_argument('-frames_output',
-                    default=10,
+                    default=11,
                     type=int,
                     help='sum of predict frames')
-parser.add_argument('-epochs', default=500, type=int, help='sum of epochs')
+parser.add_argument('-epochs', default=10, type=int, help='sum of epochs')
 args = parser.parse_args()
 
-random_seed = 1996
+random_seed = 2023
 np.random.seed(random_seed)
 torch.manual_seed(random_seed)
 if torch.cuda.device_count() > 1:
@@ -65,16 +65,18 @@ torch.backends.cudnn.benchmark = False
 
 save_dir = './save_model/' + TIMESTAMP
 
-trainFolder = MovingMNIST(is_train=True,
-                          root='data/',
+trainFolder = MovingFrame(is_train=True,
+                          root='../train_data/train',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
-                          num_objects=[3])
-validFolder = MovingMNIST(is_train=False,
-                          root='data/',
+                          )
+validFolder = MovingFrame(is_train=False,
+                          root='../train_data/train',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
-                          num_objects=[3])
+                          )
+print('training:', trainFolder.dataset.shape)
+print('validation:', validFolder.dataset.shape)
 trainLoader = torch.utils.data.DataLoader(trainFolder,
                                           batch_size=args.batch_size,
                                           shuffle=False)
@@ -85,9 +87,9 @@ validLoader = torch.utils.data.DataLoader(validFolder,
 if args.convlstm:
     encoder_params = convlstm_encoder_params
     decoder_params = convlstm_decoder_params
-if args.convgru:
-    encoder_params = convgru_encoder_params
-    decoder_params = convgru_decoder_params
+# if args.convgru:
+#     encoder_params = convgru_encoder_params
+#     decoder_params = convgru_decoder_params
 else:
     encoder_params = convgru_encoder_params
     decoder_params = convgru_decoder_params
@@ -109,6 +111,7 @@ def train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     if torch.cuda.device_count() > 1:
+        print('cuda > 1')
         net = nn.DataParallel(net)
     net.to(device)
 
@@ -146,11 +149,14 @@ def train():
         ###################
         t = tqdm(trainLoader, leave=False, total=len(trainLoader))
         for i, (idx, targetVar, inputVar, _, _) in enumerate(t):
+            print(f'epoch--{epoch}, i--{i}:')
             inputs = inputVar.to(device)  # B,S,C,H,W
             label = targetVar.to(device)  # B,S,C,H,W
             optimizer.zero_grad()
             net.train()
+            print('training complete')
             pred = net(inputs)  # B,S,C,H,W
+            print('model complete')
             loss = lossfunction(pred, label)
             loss_aver = loss.item() / args.batch_size
             train_losses.append(loss_aver)
