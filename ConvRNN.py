@@ -50,9 +50,6 @@ class CGRU_cell(nn.Module):
             else:
                 x = inputs[index, ...]
 
-            print('htprev size:',htprev.size())
-            print('x size:',x.size())
-
             # htprev_resized = nn.functional.interpolate(htprev, scale_factor=x.size(1) / htprev.size(1), mode='nearest')
 
             combined_1 = torch.cat((x, htprev), 1)  # X_t + H_t-1

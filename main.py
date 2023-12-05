@@ -143,20 +143,21 @@ def train():
     # to track the average validation loss per epoch as the model trains
     avg_valid_losses = []
     # mini_val_loss = np.inf
-    for epoch in range(cur_epoch, args.epochs + 1):
+    for epoch in range(args.epochs):
+        print('epoch ', epoch + 1)
         ###################
         # train the model #
         ###################
         t = tqdm(trainLoader, leave=False, total=len(trainLoader))
         for i, (idx, targetVar, inputVar, _, _) in enumerate(t):
-            print(f'epoch--{epoch}, i--{i}:')
+            #print(f'epoch--{epoch}, i--{i}:')
             inputs = inputVar.to(device)  # B,S,C,H,W
             label = targetVar.to(device)  # B,S,C,H,W
             optimizer.zero_grad()
             net.train()
-            print('training complete')
+            #print('training complete')
             pred = net(inputs)  # B,S,C,H,W
-            print('model complete')
+            #print('model complete')
             loss = lossfunction(pred, label)
             loss_aver = loss.item() / args.batch_size
             train_losses.append(loss_aver)
@@ -201,7 +202,7 @@ def train():
 
         epoch_len = len(str(args.epochs))
 
-        print_msg = (f'[{epoch:>{epoch_len}}/{args.epochs:>{epoch_len}}] ' +
+        print_msg = (f'[{epoch+1:>{epoch_len}}/{args.epochs:>{epoch_len}}] ' +
                      f'train_loss: {train_loss:.6f} ' +
                      f'valid_loss: {valid_loss:.6f}')
 
