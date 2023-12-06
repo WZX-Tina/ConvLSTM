@@ -11,21 +11,52 @@ def load_videos(parent_folder):
     # Load image.
     video_arrays = []
     print("Current Directory:", os.getcwd())
-    for dirs in os.listdir(parent_folder):
-        print(dirs)
-        video = []
-        print(os.path.join(parent_folder,dirs))
-        if dirs != '.DS_Store':
-            for filename in os.listdir(os.path.join(parent_folder,dirs)):
-                if filename.endswith(('.png')):
-                    image_path = os.path.join(parent_folder,dirs,filename)
-                    image = Image.open(image_path)
-                    image_array = np.array(image)
-                    video.append(image_array)
-            video_arrays.append(video)
-    video_arrays = np.array(video_arrays)
-    print(video_arrays.shape)
-    np.save('video_arrays.npy', video_arrays)
+    if parent_folder.endswith(('val')):
+        for dirs in os.listdir(parent_folder):
+            print(dirs)
+            video = []
+            print(os.path.join(parent_folder,dirs))
+            if dirs != '.DS_Store':
+                for filename in os.listdir(os.path.join(parent_folder,dirs)):
+                    if filename.endswith(('.png')):
+                        image_path = os.path.join(parent_folder,dirs,filename)
+                        image = Image.open(image_path)
+                        image_array = np.array(image)
+                        video.append(image_array)
+                video_arrays.append(video)
+        video_arrays = np.array(video_arrays)
+        print(video_arrays.shape)
+        np.save('video_arrays_val.npy', video_arrays)
+    else:
+        parent_folder_tmp = parent_folder+'/train'
+        for dirs in os.listdir(parent_folder_tmp):
+            print(dirs)
+            video = []
+            print(os.path.join(parent_folder,dirs))
+            if dirs != '.DS_Store':
+                for filename in os.listdir(os.path.join(parent_folder_tmp,dirs)):
+                    if filename.endswith(('.png')):
+                        image_path = os.path.join(parent_folder_tmp,dirs,filename)
+                        image = Image.open(image_path)
+                        image_array = np.array(image)
+                        video.append(image_array)
+                video_arrays.append(video)
+#        parent_folder_tmp = parent_folder+'/unlabeled'
+#        for dirs in os.listdir(parent_folder_tmp):
+#            print(dirs)
+#            video = []
+#            print(os.path.join(parent_folder,dirs))
+#            if dirs != '.DS_Store':
+#                for filename in os.listdir(os.path.join(parent_folder_tmp,dirs)):
+#                    if filename.endswith(('.png')):
+#                        image_path = os.path.join(parent_folder_tmp,dirs,filename)
+#                        image = Image.open(image_path)
+#                        image_array = np.array(image)
+#                        video.append(image_array)
+#                video_arrays.append(video)
+        video_arrays = np.array(video_arrays)
+        print(video_arrays.shape)
+        np.save('video_arrays_train.npy', video_arrays)
     return video_arrays
 
 # load_videos('../../train_data/train')
@@ -41,15 +72,15 @@ class MovingFrame(data.Dataset):
 
         self.dataset = None
         if is_train:
-            if os.path.exists('./video_arrays.npy'):
-                self.dataset = np.load('video_arrays.npy')[:800]
+            if os.path.exists('./video_arrays_train.npy'):
+                self.dataset = np.load('video_arrays_train.npy')
             else:
-                self.dataset = load_videos(root)[:800]
+                self.dataset = load_videos(root)
         else:
-            if os.path.exists('./video_arrays.npy'):
-                self.dataset = np.load('video_arrays.npy')[800:]
+            if os.path.exists('./video_arrays_val.npy'):
+                self.dataset = np.load('video_arrays_val.npy')
             else:
-                self.dataset = load_videos(root)[800:]
+                self.dataset = load_videos(root)
         self.length = self.dataset.shape[1]
 
         self.is_train = is_train

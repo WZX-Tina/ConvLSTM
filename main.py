@@ -27,7 +27,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 import argparse
 
-TIMESTAMP = "2023-11-22T00-00-00"
+TIMESTAMP = "2023-12-05T02-00-00"
 parser = argparse.ArgumentParser()
 parser.add_argument('-clstm',
                     '--convlstm',
@@ -38,7 +38,7 @@ parser.add_argument('-cgru',
                     help='use convgru as base cell',
                     action='store_true')
 parser.add_argument('--batch_size',
-                    default=4,
+                    default=2,
                     type=int,
                     help='mini-batch size')
 parser.add_argument('-lr', default=1e-4, type=float, help='G learning rate')
@@ -50,7 +50,7 @@ parser.add_argument('-frames_output',
                     default=11,
                     type=int,
                     help='sum of predict frames')
-parser.add_argument('-epochs', default=10, type=int, help='sum of epochs')
+parser.add_argument('-epochs', default=300, type=int, help='sum of epochs')
 args = parser.parse_args()
 
 random_seed = 2023
@@ -66,12 +66,12 @@ torch.backends.cudnn.benchmark = False
 save_dir = './save_model/' + TIMESTAMP
 
 trainFolder = MovingFrame(is_train=True,
-                          root='../train_data/train',
+                          root='../data',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
                           )
 validFolder = MovingFrame(is_train=False,
-                          root='../train_data/train',
+                          root='../data/val',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
                           )
@@ -107,7 +107,7 @@ def train():
         os.makedirs(run_dir)
     tb = SummaryWriter(run_dir)
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=20, verbose=True)
+    early_stopping = EarlyStopping(patience=25, verbose=True)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     if torch.cuda.device_count() > 1:
