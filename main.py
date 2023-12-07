@@ -66,11 +66,13 @@ torch.backends.cudnn.benchmark = False
 save_dir = './save_model/' + TIMESTAMP
 
 trainFolder = MovingFrame(is_train=True,
+                          is_val=False,
                           root='../data',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
                           )
 validFolder = MovingFrame(is_train=False,
+                          is_val=True,
                           root='../data/val',
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
