@@ -47,24 +47,24 @@ class Encoder(nn.Module):
         return tuple(hidden_states)
 
 
-if __name__ == "__main__":
-    from net_params import convgru_encoder_params, convgru_decoder_params
-    from data.mm import MovingFrame
+# if __name__ == "__main__":
+#     from net_params import convgru_encoder_params, convgru_decoder_params
+#     from data.mm import MovingFrame
 
-    encoder = Encoder(convgru_encoder_params[0],
-                      convgru_encoder_params[1]).cuda()
-    trainFolder = MovingFrame(is_train=True,
-                              root='../train_data/train',
-                              n_frames_input=11,
-                              n_frames_output=11,
-                              )
-    trainLoader = torch.utils.data.DataLoader(
-        trainFolder,
-        batch_size=4,
-        shuffle=False,
-    )
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    for i, (idx, targetVar, inputVar, _, _) in enumerate(trainLoader):
-        inputs = inputVar.to(device)  # B,S,1,64,64
-        #print("i--",i)
-        state = encoder(inputs)
+#     encoder = Encoder(convgru_encoder_params[0],
+#                       convgru_encoder_params[1]).cuda()
+#     trainFolder = MovingFrame(is_train=True,
+#                               root='../train_data/train',
+#                               n_frames_input=11,
+#                               n_frames_output=11,
+#                               )
+#     trainLoader = torch.utils.data.DataLoader(
+#         trainFolder,
+#         batch_size=4,
+#         shuffle=False,
+#     )
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#     for i, (idx, targetVar, inputVar, _, _) in enumerate(trainLoader):
+#         inputs = inputVar.to(device)  # B,S,1,64,64
+#         #print("i--",i)
+#         state = encoder(inputs)

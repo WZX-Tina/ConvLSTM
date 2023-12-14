@@ -1,24 +1,22 @@
-import gzip
-import math
 import numpy as np
 import os
 from PIL import Image
-import random
 import torch
 import torch.utils.data as data
 import json
 
+root_path = '/scratch/tw2672/1008_Project'
+
 def load_videos(parent_folder):
-    # Load image.
+    # Load images
     video_arrays = []
     dir_arrays = []
-    print("Current Directory:", os.getcwd())
-    if parent_folder.endswith(('hidden')):
+    print("Current Directory:", parent_folder)
+    if parent_folder.endswith(('hidden')): # hidden
         for dirs in os.listdir(parent_folder):
             print(dirs)
             dir_arrays.append(dirs)
             video = []
-            print(os.path.join(parent_folder,dirs))
             if dirs != '.DS_Store':
                 for filename in os.listdir(os.path.join(parent_folder,dirs)):
                     if filename.endswith(('.png')):
@@ -28,16 +26,15 @@ def load_videos(parent_folder):
                         video.append(image_array)
                 video_arrays.append(video)
         video_arrays = np.array(video_arrays)
-        print(video_arrays.shape)
-        np.save('video_arrays_hidden.npy', video_arrays)
-        with open('dir_arrays_hidden.json','w') as f:
+        print('hidden shape', video_arrays.shape)
+        np.save(root_path+'/video_arrays_hidden.npy', video_arrays)
+        with open(root_path+'/dir_arrays_hidden.json','w') as f:
             json.dump(dir_arrays,f)
-    elif parent_folder.endswith(('val')):
+    elif parent_folder.endswith(('val')): # val
         for dirs in os.listdir(parent_folder):
             print(dirs)
             dir_arrays.append(dirs)
             video = []
-            print(os.path.join(parent_folder,dirs))
             if dirs != '.DS_Store':
                 for filename in os.listdir(os.path.join(parent_folder,dirs)):
                     if filename.endswith(('.png')):
@@ -47,17 +44,16 @@ def load_videos(parent_folder):
                         video.append(image_array)
                 video_arrays.append(video)
         video_arrays = np.array(video_arrays)
-        print(video_arrays.shape)
-        np.save('video_arrays_val.npy', video_arrays)
-        with open('dir_arrays_val.json','w') as f:
+        print('val shape', video_arrays.shape)
+        np.save(root_path+'/video_arrays_val.npy', video_arrays)
+        with open(root_path+'/dir_arrays_val.json','w') as f:
             json.dump(dir_arrays,f)
-    else:
+    else: # train
         parent_folder_tmp = parent_folder+'/train'
         for dirs in os.listdir(parent_folder_tmp):
             print(dirs)
             dir_arrays.append(dirs)
             video = []
-            print(os.path.join(parent_folder,dirs))
             if dirs != '.DS_Store':
                 for filename in os.listdir(os.path.join(parent_folder_tmp,dirs)):
                     if filename.endswith(('.png')):
@@ -66,23 +62,10 @@ def load_videos(parent_folder):
                         image_array = np.array(image)
                         video.append(image_array)
                 video_arrays.append(video)
-#        parent_folder_tmp = parent_folder+'/unlabeled'
-#        for dirs in os.listdir(parent_folder_tmp):
-#            print(dirs)
-#            video = []
-#            print(os.path.join(parent_folder,dirs))
-#            if dirs != '.DS_Store':
-#                for filename in os.listdir(os.path.join(parent_folder_tmp,dirs)):
-#                    if filename.endswith(('.png')):
-#                        image_path = os.path.join(parent_folder_tmp,dirs,filename)
-#                        image = Image.open(image_path)
-#                        image_array = np.array(image)
-#                        video.append(image_array)
-#                video_arrays.append(video)
         video_arrays = np.array(video_arrays)
-        print(video_arrays.shape)
-        np.save('video_arrays_train.npy', video_arrays)
-        with open('dir_arrays_train.json','w') as f:
+        print('train shape', video_arrays.shape)
+        np.save(root_path+'/video_arrays_train.npy', video_arrays)
+        with open(root_path+'/dir_arrays_train.json','w') as f:
             json.dump(dir_arrays,f)
     return video_arrays, dir_arrays
 
@@ -92,34 +75,52 @@ def load_videos(parent_folder):
 class MovingFrame(data.Dataset):
     def __init__(self, root, is_train, is_val, n_frames_input, n_frames_output,
                  transform=None):
-        '''
-        param num_objects: a list of number of possible objects.
-        '''
+        
         super(MovingFrame, self).__init__()
 
         self.dataset = None
-        if is_train:
-            if os.path.exists('./video_arrays_train.npy'):
-                self.dataset = np.load('video_arrays_train.npy')
-                with open('dir_arrays_train.json','r') as f:
+        if is_train: # train+unlabeled
+            if os.path.exists(root_path+'/video_arrays_train.npy') and os.path.exists(root_path+'/video_arrays_unlabeled.npy') and os.path.exists(root_path+'/video_arrays_unlabeled_1.npy') and os.path.exists(root_path+'/video_arrays_unlabeled_2.npy'):
+                print('loading npy')
+                dataset_train = np.load(root_path+'/video_arrays_train.npy')
+                dataset_unlabeled_0, dataset_unlabeled_1, dataset_unlabeled_2 = np.load(root_path+'/video_arrays_unlabeled.npy'), np.load(root_path+'/video_arrays_unlabeled_1.npy'), np.load(root_path+'/video_arrays_unlabeled_2.npy')
+                with open(root_path+'/dir_arrays_train.json','r') as f:
+                    video_list_train = json.load(f)
+                with open(root_path+'/dir_arrays_unlabeled.json','r') as f:
+                    video_list_unlabeled_0 = json.load(f)
+                with open(root_path+'/dir_arrays_unlabeled_1.json','r') as f:
+                    video_list_unlabeled_1 = json.load(f)
+                with open(root_path+'/dir_arrays_unlabeled_2.json','r') as f:
+                    video_list_unlabeled_2 = json.load(f)
+                self.dataset = np.concatenate((dataset_train, dataset_unlabeled_0, dataset_unlabeled_1, dataset_unlabeled_2), axis=0)
+                self.video_list = video_list_train + video_list_unlabeled_0 + video_list_unlabeled_1 + video_list_unlabeled_2
+            elif os.path.exists(root_path+'/video_arrays_train.npy'):
+                print('loading npy')
+                self.dataset = np.load(root_path+'/video_arrays_train.npy')
+                with open(root_path+'/dir_arrays_train.json','r') as f:
                     self.video_list = json.load(f)
             else:
+                print('loading images')
                 self.dataset, self.video_list = load_videos(root)
-        elif is_val:
-            if os.path.exists('./video_arrays_val.npy'):
-                self.dataset = np.load('video_arrays_val.npy')
-                with open('dir_arrays_val.json','r') as f:
+        elif is_val: # val
+            if os.path.exists(root_path+'/video_arrays_val.npy'):
+                print('loading npy')
+                self.dataset = np.load(root_path+'/video_arrays_val.npy')
+                with open(root_path+'/dir_arrays_val.json','r') as f:
                     self.video_list = json.load(f)
             else:
+                print('loading images')
                 self.dataset, self.video_list = load_videos(root)
-        else:
-            if os.path.exists('./video_arrays_hidden.npy'):
-                self.dataset = np.load('video_arrays_hidden.npy')
-                with open('dir_arrays_hidden.json','r') as f:
+        else: # hidden
+            if os.path.exists(root_path+'/video_arrays_hidden.npy'):
+                print('loading npy')
+                self.dataset = np.load(root_path+'/video_arrays_hidden.npy')
+                with open(root_path+'/dir_arrays_hidden.json','r') as f:
                     self.video_list = json.load(f)
             else:
+                print('loading images')
                 self.dataset, self.video_list = load_videos(root)
-        self.length = self.dataset.shape[1]
+        self.length = self.dataset.shape[0]
 
         self.is_train = is_train
         self.n_frames_input = n_frames_input

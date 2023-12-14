@@ -1,14 +1,3 @@
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-'''
-@File    :   main.py
-@Time    :   2020/03/09
-@Author  :   jhhuang96
-@Mail    :   hjh096@126.com
-@Version :   1.0
-@Description:   
-'''
-
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from encoder import Encoder
@@ -17,17 +6,15 @@ from model import ED
 from net_params import convlstm_encoder_params, convlstm_decoder_params, convgru_encoder_params, convgru_decoder_params
 from data.mm import MovingFrame
 import torch
+from torch.utils.data import DataLoader
 from torch import nn
 from torch.optim import lr_scheduler
 import torch.optim as optim
-import sys
 from earlystopping import EarlyStopping
 from tqdm import tqdm
 import numpy as np
-from tensorboardX import SummaryWriter
 import argparse
 
-TIMESTAMP = "2023-12-05T02-00-00"
 parser = argparse.ArgumentParser()
 parser.add_argument('-clstm',
                     '--convlstm',
@@ -38,7 +25,7 @@ parser.add_argument('-cgru',
                     help='use convgru as base cell',
                     action='store_true')
 parser.add_argument('--batch_size',
-                    default=2,
+                    default=4,
                     type=int,
                     help='mini-batch size')
 parser.add_argument('-lr', default=1e-4, type=float, help='G learning rate')
@@ -50,7 +37,7 @@ parser.add_argument('-frames_output',
                     default=11,
                     type=int,
                     help='sum of predict frames')
-parser.add_argument('-epochs', default=300, type=int, help='sum of epochs')
+parser.add_argument('-epochs', default=300, type=int, help='number of epochs')
 args = parser.parse_args()
 
 random_seed = 2023
@@ -63,28 +50,30 @@ else:
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
+TIMESTAMP = "2023-12-11T00-00-00"
 save_dir = './save_model/' + TIMESTAMP
-
-trainFolder = MovingFrame(is_train=True,
+root_path = '/scratch/tw2672/1008_Project'
+trainFolder = MovingFrame(is_train=True, # load npy
                           is_val=False,
-                          root='../data',
-                          n_frames_input=args.frames_input,
-                          n_frames_output=args.frames_output,
-                          )
-validFolder = MovingFrame(is_train=False,
-                          is_val=True,
-                          root='../data/val',
+                          root=root_path+'/data', # load image
                           n_frames_input=args.frames_input,
                           n_frames_output=args.frames_output,
                           )
 print('training:', trainFolder.dataset.shape)
+validFolder = MovingFrame(is_train=False,
+                          is_val=True,
+                          root=root_path+'/data/val',
+                          n_frames_input=args.frames_input,
+                          n_frames_output=args.frames_output,
+                          )
 print('validation:', validFolder.dataset.shape)
-trainLoader = torch.utils.data.DataLoader(trainFolder,
-                                          batch_size=args.batch_size,
-                                          shuffle=False)
-validLoader = torch.utils.data.DataLoader(validFolder,
-                                          batch_size=args.batch_size,
-                                          shuffle=False)
+
+trainLoader = DataLoader(trainFolder,
+                        batch_size=args.batch_size,
+                        shuffle=False)
+validLoader = DataLoader(validFolder,
+                        batch_size=args.batch_size,
+                        shuffle=False)
 
 if args.convlstm:
     encoder_params = convlstm_encoder_params
@@ -97,39 +86,24 @@ else:
     decoder_params = convgru_decoder_params
 
 
-def train():
-    '''
-    main function to run the training
-    '''
-    encoder = Encoder(encoder_params[0], encoder_params[1]).cuda()
-    decoder = Decoder(decoder_params[0], decoder_params[1]).cuda()
+def main():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    encoder = Encoder(encoder_params[0], encoder_params[1]).to(device)
+    decoder = Decoder(decoder_params[0], decoder_params[1]).to(device)
     net = ED(encoder, decoder)
     run_dir = './runs/' + TIMESTAMP
     if not os.path.isdir(run_dir):
         os.makedirs(run_dir)
-    tb = SummaryWriter(run_dir)
+    # tb = SummaryWriter(run_dir)
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=25, verbose=True)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    early_stopping = EarlyStopping(patience=15, verbose=True)
 
     if torch.cuda.device_count() > 1:
         print('cuda > 1')
         net = nn.DataParallel(net)
     net.to(device)
 
-    if os.path.exists(os.path.join(save_dir, 'checkpoint.pth.tar')):
-        # load existing model
-        print('==> loading existing model')
-        model_info = torch.load(os.path.join(save_dir, 'checkpoin.pth.tar'))
-        net.load_state_dict(model_info['state_dict'])
-        optimizer = torch.optim.Adam(net.parameters())
-        optimizer.load_state_dict(model_info['optimizer'])
-        cur_epoch = model_info['epoch'] + 1
-    else:
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
-        cur_epoch = 0
-    lossfunction = nn.MSELoss().cuda()
+    lossfunction = nn.MSELoss().to(device)
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                       factor=0.5,
@@ -157,11 +131,9 @@ def train():
             label = targetVar.to(device)  # B,S,C,H,W
             optimizer.zero_grad()
             net.train()
-            #print('training complete')
             pred = net(inputs)  # B,S,C,H,W
-            #print('model complete')
             loss = lossfunction(pred, label)
-            loss_aver = loss.item() / args.batch_size
+            loss_aver = loss.cpu().item() / args.batch_size
             train_losses.append(loss_aver)
             loss.backward()
             torch.nn.utils.clip_grad_value_(net.parameters(), clip_value=10.0)
@@ -170,7 +142,7 @@ def train():
                 'trainloss': '{:.6f}'.format(loss_aver),
                 'epoch': '{:02d}'.format(epoch)
             })
-        tb.add_scalar('TrainLoss', loss_aver, epoch)
+        # tb.add_scalar('TrainLoss', loss_aver, epoch)
         ######################
         # validate the model #
         ######################
@@ -178,13 +150,11 @@ def train():
             net.eval()
             t = tqdm(validLoader, leave=False, total=len(validLoader))
             for i, (idx, targetVar, inputVar, _, _) in enumerate(t):
-                if i == 3000:
-                    break
                 inputs = inputVar.to(device)
                 label = targetVar.to(device)
                 pred = net(inputs)
                 loss = lossfunction(pred, label)
-                loss_aver = loss.item() / args.batch_size
+                loss_aver = loss.cpu().item() / args.batch_size
                 # record validation loss
                 valid_losses.append(loss_aver)
                 #print ("validloss: {:.6f},  epoch : {:02d}".format(loss_aver,epoch),end = '\r', flush=True)
@@ -193,7 +163,7 @@ def train():
                     'epoch': '{:02d}'.format(epoch)
                 })
 
-        tb.add_scalar('ValidLoss', loss_aver, epoch)
+        # tb.add_scalar('ValidLoss', loss_aver, epoch)
         torch.cuda.empty_cache()
         # print training/validation statistics
         # calculate average loss over an epoch
@@ -212,7 +182,7 @@ def train():
         # clear lists to track next epoch
         train_losses = []
         valid_losses = []
-        pla_lr_scheduler.step(valid_loss)  # lr_scheduler
+        pla_lr_scheduler.step(valid_loss) 
         model_dict = {
             'epoch': epoch,
             'state_dict': net.state_dict(),
@@ -233,4 +203,4 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    main()

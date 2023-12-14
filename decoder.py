@@ -49,35 +49,35 @@ class Decoder(nn.Module):
         return inputs
 
 
-if __name__ == "__main__":
-    from net_params import convlstm_encoder_params, convlstm_forecaster_params
-    from data.mm import MovingMNIST
-    from encoder import Encoder
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# if __name__ == "__main__":
+#     from net_params import convlstm_encoder_params, convlstm_forecaster_params
+#     from data.mm import MovingMNIST
+#     from encoder import Encoder
+#     import os
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    encoder = Encoder(convlstm_encoder_params[0],
-                      convlstm_encoder_params[1]).cuda()
-    decoder = Decoder(convlstm_forecaster_params[0],
-                      convlstm_forecaster_params[1]).cuda()
-    if torch.cuda.device_count() > 1:
-        encoder = nn.DataParallel(encoder)
-        decoder = nn.DataParallel(decoder)
+#     encoder = Encoder(convlstm_encoder_params[0],
+#                       convlstm_encoder_params[1]).cuda()
+#     decoder = Decoder(convlstm_forecaster_params[0],
+#                       convlstm_forecaster_params[1]).cuda()
+#     if torch.cuda.device_count() > 1:
+#         encoder = nn.DataParallel(encoder)
+#         decoder = nn.DataParallel(decoder)
 
-    trainFolder = MovingMNIST(is_train=True,
-                              root='data/',
-                              n_frames_input=10,
-                              n_frames_output=10,
-                              num_objects=[3])
-    trainLoader = torch.utils.data.DataLoader(
-        trainFolder,
-        batch_size=8,
-        shuffle=False,
-    )
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    for i, (idx, targetVar, inputVar, _, _) in enumerate(trainLoader):
-        inputs = inputVar.to(device)  # B,S,1,64,64
-        state = encoder(inputs)
-        break
-    output = decoder(state)
-    print(output.shape)  # S,B,1,64,64
+#     trainFolder = MovingMNIST(is_train=True,
+#                               root='data/',
+#                               n_frames_input=10,
+#                               n_frames_output=10,
+#                               num_objects=[3])
+#     trainLoader = torch.utils.data.DataLoader(
+#         trainFolder,
+#         batch_size=8,
+#         shuffle=False,
+#     )
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#     for i, (idx, targetVar, inputVar, _, _) in enumerate(trainLoader):
+#         inputs = inputVar.to(device)  # B,S,1,64,64
+#         state = encoder(inputs)
+#         break
+#     output = decoder(state)
+#     print(output.shape)  # S,B,1,64,64
